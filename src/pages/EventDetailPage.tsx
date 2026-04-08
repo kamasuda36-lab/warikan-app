@@ -105,7 +105,21 @@ export default function EventDetailPage({ eventId }: { eventId: string }) {
     <div className="min-h-screen" style={{ background: '#FAF8F5' }}>
       {/* ヘッダー */}
       <div className="px-5 pt-safe pb-4">
-        <BackButton onClick={() => dispatch({ type: 'SET_PAGE', page: { name: 'list' } })} />
+        <div className="flex items-center justify-between">
+          <BackButton onClick={() => dispatch({ type: 'SET_PAGE', page: { name: 'list' } })} />
+          <button
+            onClick={() => {
+              if (window.confirm(`「${event.name}」を削除しますか？`)) {
+                dispatch({ type: 'DELETE_EVENT', eventId: event.id })
+                dispatch({ type: 'SET_PAGE', page: { name: 'list' } })
+              }
+            }}
+            className="text-xs px-3 py-1.5 rounded-full"
+            style={{ background: '#F5E8E8', color: '#C49090' }}
+          >
+            削除
+          </button>
+        </div>
         <h1 className="text-xl font-medium mt-3 truncate" style={{ color: '#5C4A3A' }}>
           {event.name}
         </h1>
