@@ -2,9 +2,9 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "warikan-app",
-      "runtimeExecutable": "/tmp/warikan-serve.sh",
-      "runtimeArgs": [],
+      "name": "warikan-dev",
+      "runtimeExecutable": "/tmp/node-v20.11.0-darwin-arm64/bin/node",
+      "runtimeArgs": ["/Users/masudakatsuya/Library/CloudStorage/OneDrive-個人用/リベ関係/Claudeアプリ/AlcoTrack-Pro/node_modules/vite/bin/vite.js", "--host", "--port", "5174"],
       "port": 5174
     }
   ]

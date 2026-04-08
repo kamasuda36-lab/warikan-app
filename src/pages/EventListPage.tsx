@@ -31,43 +31,43 @@ function EventCard({ event, onTap }: EventCardProps) {
     <button
       onClick={() => onTap(event)}
       className="w-full text-left bg-white rounded-3xl p-5 mb-3 transition-all duration-200 active:scale-98 hover:shadow-soft-md"
-      style={{ boxShadow: '0 2px 16px rgba(92,74,58,0.08)' }}
+      style={{ boxShadow: '0 2px 16px rgba(92,74,58,0.10)' }}
     >
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-3 flex-1 min-w-0">
           <div
             className="flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center text-xl"
-            style={{ background: 'linear-gradient(135deg, #F5D7DB 0%, #E4DAF0 100%)' }}
+            style={{ background: 'linear-gradient(135deg, #ECC4CC 0%, #D4CAEC 100%)' }}
           >
             {getEventEmoji(event.name)}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-medium text-base truncate" style={{ color: '#5C4A3A' }}>
+            <p className="font-medium text-base truncate" style={{ color: '#4A3828' }}>
               {event.name}
             </p>
-            <p className="text-sm mt-0.5" style={{ color: '#B8A898' }}>
+            <p className="text-sm mt-0.5" style={{ color: '#9A8070' }}>
               {formatDate(event.date)}
             </p>
             <div className="flex items-center gap-2 mt-2">
-              <span className="text-xs px-2.5 py-1 rounded-full" style={{ background: '#F5D7DB', color: '#D4909A' }}>
+              <span className="text-xs px-2.5 py-1 rounded-full" style={{ background: '#ECC4CC', color: '#C07080' }}>
                 👥 {event.participants.length}人
               </span>
-              <span className="text-xs px-2.5 py-1 rounded-full" style={{ background: '#E8C9A8', color: '#A07848' }}>
+              <span className="text-xs px-2.5 py-1 rounded-full" style={{ background: '#DEB888', color: '#906030' }}>
                 💳 {event.payments.length}件
               </span>
             </div>
           </div>
         </div>
         <div className="flex-shrink-0 ml-3 text-right">
-          <p className="font-medium text-base" style={{ color: '#C4956A' }}>
+          <p className="font-medium text-base" style={{ color: '#B07840' }}>
             {formatCurrency(total)}
           </p>
           <span
             className="inline-block text-xs px-2.5 py-1 rounded-full mt-1 font-medium"
             style={
               event.isSettled
-                ? { background: '#D6EDE5', color: '#8DB8A4' }
-                : { background: '#F5D7DB', color: '#D4909A' }
+                ? { background: '#C0E0D5', color: '#3A8060' }
+                : { background: '#ECC4CC', color: '#C07080' }
             }
           >
             {event.isSettled ? '✓ 精算済' : '未精算'}
@@ -91,21 +91,21 @@ export default function EventListPage() {
   const unsettledCount = state.events.filter(e => !e.isSettled).length
 
   return (
-    <div className="min-h-screen" style={{ background: '#FAF8F5' }}>
+    <div className="min-h-screen" style={{ background: '#F5F0EC' }}>
       {/* ヘッダー */}
       <div
         className="sticky top-0 z-10 px-5 pb-4 pt-safe"
-        style={{ background: 'linear-gradient(180deg, #FAF8F5 85%, transparent 100%)' }}
+        style={{ background: 'linear-gradient(180deg, #F5F0EC 85%, transparent 100%)' }}
       >
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-medium" style={{ color: '#5C4A3A' }}>
+            <h1 className="text-2xl font-medium" style={{ color: '#4A3828' }}>
               わりかん帳
             </h1>
-            <p className="text-sm mt-0.5" style={{ color: '#B8A898' }}>
+            <p className="text-sm mt-0.5" style={{ color: '#9A8070' }}>
               {state.events.length}件のイベント
               {unsettledCount > 0 && (
-                <span className="ml-2 text-xs px-2 py-0.5 rounded-full" style={{ background: '#F5D7DB', color: '#D4909A' }}>
+                <span className="ml-2 text-xs px-2 py-0.5 rounded-full" style={{ background: '#ECC4CC', color: '#C07080' }}>
                   {unsettledCount}件未精算
                 </span>
               )}
@@ -115,8 +115,8 @@ export default function EventListPage() {
             onClick={() => dispatch({ type: 'SET_PAGE', page: { name: 'new-event' } })}
             className="w-12 h-12 rounded-full flex items-center justify-center text-white text-xl font-light transition-all duration-200 active:scale-95"
             style={{
-              background: 'linear-gradient(135deg, #E8B4BC 0%, #C9B8D8 100%)',
-              boxShadow: '0 4px 16px rgba(200,130,150,0.30)',
+              background: 'linear-gradient(135deg, #D4889A 0%, #B89CC8 100%)',
+              boxShadow: '0 4px 16px rgba(180,100,130,0.40)',
             }}
           >
             ＋
@@ -132,8 +132,8 @@ export default function EventListPage() {
               className="px-4 py-2 rounded-full text-sm font-medium transition-all duration-200"
               style={
                 filter === f
-                  ? { background: '#E8B4BC', color: '#fff' }
-                  : { background: '#fff', color: '#B8A898', boxShadow: '0 1px 8px rgba(92,74,58,0.06)' }
+                  ? { background: '#D4889A', color: '#fff' }
+                  : { background: '#fff', color: '#9A8070', boxShadow: '0 1px 8px rgba(92,74,58,0.08)' }
               }
             >
               {f === 'all' ? 'すべて' : f === 'unsettled' ? '未精算' : '精算済'}
@@ -148,14 +148,14 @@ export default function EventListPage() {
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div
               className="w-20 h-20 rounded-full flex items-center justify-center text-3xl mb-4"
-              style={{ background: 'linear-gradient(135deg, #F5D7DB, #E4DAF0)' }}
+              style={{ background: 'linear-gradient(135deg, #ECC4CC, #D4CAEC)' }}
             >
               🌸
             </div>
-            <p className="font-medium" style={{ color: '#5C4A3A' }}>
+            <p className="font-medium" style={{ color: '#4A3828' }}>
               イベントがありません
             </p>
-            <p className="text-sm mt-1" style={{ color: '#B8A898' }}>
+            <p className="text-sm mt-1" style={{ color: '#9A8070' }}>
               ＋ボタンから新しいイベントを作成しましょう
             </p>
           </div>
@@ -176,8 +176,8 @@ export default function EventListPage() {
           <div
             className="rounded-3xl p-4 flex items-center justify-between"
             style={{
-              background: 'linear-gradient(135deg, #E8B4BC 0%, #C9B8D8 100%)',
-              boxShadow: '0 8px 32px rgba(200, 130, 150, 0.30)',
+              background: 'linear-gradient(135deg, #D4889A 0%, #B89CC8 100%)',
+              boxShadow: '0 8px 32px rgba(180, 100, 130, 0.40)',
             }}
           >
             <div>

@@ -13,6 +13,7 @@ export interface Payment {
   amountInJPY: number
   description: string
   splitAmong: string[] // participant IDs
+  customSplits?: Record<string, number> // participantId -> 負担額(JPY)
 }
 
 export interface Settlement {

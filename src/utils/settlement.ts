@@ -17,15 +17,23 @@ export function calculateSettlements(
 
   // 各支払いの収支を計算
   payments.forEach(payment => {
-    const { payerId, amountInJPY, splitAmong } = payment
+    const { payerId, amountInJPY, splitAmong, customSplits } = payment
     if (splitAmong.length === 0) return
 
-    const share = Math.round(amountInJPY / splitAmong.length)
     balance[payerId] = (balance[payerId] ?? 0) + amountInJPY
 
-    splitAmong.forEach(id => {
-      balance[id] = (balance[id] ?? 0) - share
-    })
+    if (customSplits && Object.keys(customSplits).length > 0) {
+      // 個別調整あり
+      Object.entries(customSplits).forEach(([id, amount]) => {
+        balance[id] = (balance[id] ?? 0) - amount
+      })
+    } else {
+      // 均等割り
+      const share = Math.round(amountInJPY / splitAmong.length)
+      splitAmong.forEach(id => {
+        balance[id] = (balance[id] ?? 0) - share
+      })
+    }
   })
 
   // 収支の正負リスト（正=受け取る、負=支払う）
