@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="theme-color" content="#FAF8F5" />
+    <title>わりかん帳 ✿</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@300;400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              milk: '#FAF8F5',
+              rose: {
+                blush: '#E8B4BC',
+                light: '#F5D7DB',
+                dark: '#D4909A',
+              },
+              mint: {
+                soft: '#B5D5C5',
+                light: '#D6EDE5',
+                dark: '#8DB8A4',
+              },
+              lavender: {
+                soft: '#C9B8D8',
+                light: '#E4DAF0',
+                dark: '#A692BC',
+              },
+              gold: {
+                warm: '#C4956A',
+                light: '#E8C9A8',
+                dark: '#A07848',
+              },
+              brown: {
+                warm: '#5C4A3A',
+                light: '#8A7060',
+                lighter: '#B8A898',
+              },
+            },
+            fontFamily: {
+              rounded: ['"M PLUS Rounded 1c"', 'sans-serif'],
+            },
+            borderRadius: {
+              '2xl': '1rem',
+              '3xl': '1.5rem',
+              '4xl': '2rem',
+            },
+            boxShadow: {
+              soft: '0 2px 16px rgba(92, 74, 58, 0.08)',
+              'soft-md': '0 4px 24px rgba(92, 74, 58, 0.10)',
+              'soft-lg': '0 8px 32px rgba(92, 74, 58, 0.12)',
+            },
+          },
+        },
+      }
+    </script>
+    <style>
+      :root {
+        --sat: env(safe-area-inset-top, 0px);
+        --sab: env(safe-area-inset-bottom, 0px);
+        --sal: env(safe-area-inset-left, 0px);
+        --sar: env(safe-area-inset-right, 0px);
+      }
+      body {
+        font-family: 'M PLUS Rounded 1c', sans-serif;
+        background-color: #faf8f5;
+        color: #5c4a3a;
+        /* スクロールバーを非表示 */
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+      }
+      body::-webkit-scrollbar { display: none; }
+      * {
+        -webkit-tap-highlight-color: transparent;
+        /* テキスト選択を無効化（アプリっぽく） */
+        -webkit-touch-callout: none;
+      }
+      input, textarea, select {
+        -webkit-touch-callout: default;
+        -webkit-user-select: text;
+        user-select: text;
+        /* iOS でズームしない */
+        font-size: 16px;
+      }
+      /* iOS ホームバー用の余白 */
+      .pb-safe { padding-bottom: max(1.5rem, var(--sab)); }
+      .pt-safe { padding-top: max(3rem, calc(var(--sat) + 1rem)); }
+      /* ページ遷移アニメーション */
+      #root { min-height: 100dvh; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
