@@ -85,10 +85,8 @@ export default function AddPaymentPage({ eventId, paymentId }: Props) {
       ? Object.fromEntries(Object.entries(editingPayment.customSplits).map(([k, v]) => [k, String(v)]))
       : {}
   )
-  // どの人が「手動確定済み」か
-  const [lockedIds, setLockedIds] = useState<Set<string>>(
-    editingPayment?.customSplits ? new Set(Object.keys(editingPayment.customSplits)) : new Set()
-  )
+  // どの人が「手動確定済み」か（編集モードでも最初はロックなし）
+  const [lockedIds, setLockedIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     if (currency === 'JPY') { setRate(1); return }
