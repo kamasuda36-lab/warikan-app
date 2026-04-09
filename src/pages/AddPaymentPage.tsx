@@ -385,7 +385,7 @@ export default function AddPaymentPage({ eventId, paymentId }: Props) {
                   </div>
 
                   <p className="text-xs mb-3" style={{ color: '#9A8070' }}>
-                    💡 金額を入力すると固定され、残りが他の人に自動配分されます。🔓 で解除できます
+                    💡 金額を入力すると個別固定され、残りは未設定の人で自動均等配分されます
                   </p>
 
                   <div className="space-y-2">
@@ -394,47 +394,47 @@ export default function AddPaymentPage({ eventId, paymentId }: Props) {
                       const pidx = event.participants.findIndex(p => p.id === id)
                       const isLocked = lockedIds.has(id)
                       return (
-                        <div
-                          key={id}
-                          className="flex items-center gap-3 p-3 rounded-2xl"
-                          style={{ background: isLocked ? '#EDE0F5' : '#F5F0EC' }}
+                        <div key={id} className="rounded-2xl overflow-hidden"
+                          style={{ border: isLocked ? '1.5px solid #B89CC8' : '1.5px solid transparent' }}
                         >
-                          <span
-                            className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-xs text-white font-medium"
-                            style={{ background: `hsl(${pidx * 47 + 340}, 65%, 68%)` }}
+                          <div
+                            className="flex items-center gap-3 p-3"
+                            style={{ background: isLocked ? '#F0EBF8' : '#F5F0EC' }}
                           >
-                            {p.name[0]}
-                          </span>
-                          <span className="flex-1 text-sm font-medium" style={{ color: '#4A3828' }}>
-                            {p.name}
-                            {isLocked && (
-                              <span className="ml-1 text-xs" style={{ color: '#9A70C0' }}>確定</span>
-                            )}
-                          </span>
-                          {/* ロック解除ボタン */}
+                            <span
+                              className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-xs text-white font-medium"
+                              style={{ background: `hsl(${pidx * 47 + 340}, 65%, 68%)` }}
+                            >
+                              {p.name[0]}
+                            </span>
+                            <span className="flex-1 text-sm font-medium" style={{ color: '#4A3828' }}>
+                              {p.name}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <span className="text-sm" style={{ color: '#B07840' }}>¥</span>
+                              <input
+                                type="number"
+                                value={customSplits[id] ?? ''}
+                                onChange={e => handleCustomAmountChange(id, e.target.value)}
+                                className="w-24 text-right text-sm font-medium rounded-xl px-2 py-1 outline-none"
+                                style={{
+                                  color: '#4A3828',
+                                  background: isLocked ? '#E8E0F4' : '#fff',
+                                  border: isLocked ? '1.5px solid #B89CC8' : '1.5px solid #D4A880',
+                                }}
+                              />
+                            </div>
+                          </div>
+                          {/* 個別設定中の人だけ「均等割に戻す」を表示 */}
                           {isLocked && (
                             <button
                               onClick={() => handleUnlock(id)}
-                              className="text-xs px-2 py-1 rounded-full flex-shrink-0"
-                              style={{ background: '#D4CAEC', color: '#7A5090' }}
+                              className="w-full text-xs py-1.5 text-center"
+                              style={{ background: '#E4D8F4', color: '#7A5090' }}
                             >
-                              🔓
+                              {p.name}の金額を均等割に戻す
                             </button>
                           )}
-                          <div className="flex items-center gap-1">
-                            <span className="text-sm" style={{ color: '#B07840' }}>¥</span>
-                            <input
-                              type="number"
-                              value={customSplits[id] ?? ''}
-                              onChange={e => handleCustomAmountChange(id, e.target.value)}
-                              className="w-24 text-right text-sm font-medium rounded-xl px-2 py-1 outline-none"
-                              style={{
-                                color: '#4A3828',
-                                background: isLocked ? '#EDE0F5' : '#fff',
-                                border: isLocked ? '1.5px solid #B89CC8' : '1.5px solid #D4A880',
-                              }}
-                            />
-                          </div>
                         </div>
                       )
                     })}
