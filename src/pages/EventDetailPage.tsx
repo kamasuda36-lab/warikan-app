@@ -1,3 +1,4 @@
+import { useState, useRef } from 'react'
 import { useAppStore } from '../store/useAppStore'
 import { Event, Payment } from '../types'
 import { formatCurrency, calculateSettlements } from '../utils/settlement'
@@ -79,6 +80,9 @@ function PaymentCard({ payment, event, onDelete, onEdit }: { payment: Payment; e
 export default function EventDetailPage({ eventId }: { eventId: string }) {
   const { state, dispatch } = useAppStore()
   const event = state.events.find(e => e.id === eventId)
+  const [showAddMember, setShowAddMember] = useState(false)
+  const [newMemberName, setNewMemberName] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
 
   if (!event) {
     return (
@@ -107,6 +111,20 @@ export default function EventDetailPage({ eventId }: { eventId: string }) {
       updatedAt: new Date().toISOString(),
     }
     dispatch({ type: 'UPDATE_EVENT', event: updated })
+  }
+
+  const addMember = () => {
+    const name = newMemberName.trim()
+    if (!name) return
+    const newParticipant = { id: `p-${Date.now()}`, name }
+    const updated: Event = {
+      ...event!,
+      participants: [...event!.participants, newParticipant],
+      updatedAt: new Date().toISOString(),
+    }
+    dispatch({ type: 'UPDATE_EVENT', event: updated })
+    setNewMemberName('')
+    setShowAddMember(false)
   }
 
   const goToSettlement = () => {
@@ -177,7 +195,20 @@ export default function EventDetailPage({ eventId }: { eventId: string }) {
           className="bg-white rounded-3xl p-5"
           style={{ boxShadow: '0 2px 16px rgba(92,74,58,0.10)' }}
         >
-          <p className="text-sm font-medium mb-3" style={{ color: '#7A5E50' }}>参加者</p>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-medium" style={{ color: '#7A5E50' }}>参加者</p>
+            <button
+              onClick={() => {
+                setShowAddMember(v => !v)
+                setNewMemberName('')
+                setTimeout(() => inputRef.current?.focus(), 50)
+              }}
+              className="text-xs px-3 py-1.5 rounded-full font-medium"
+              style={{ background: '#ECC4CC', color: '#C07080' }}
+            >
+              ＋ 追加
+            </button>
+          </div>
           <div className="flex flex-wrap gap-2">
             {event.participants.map((p, idx) => (
               <span
@@ -189,6 +220,32 @@ export default function EventDetailPage({ eventId }: { eventId: string }) {
               </span>
             ))}
           </div>
+          {showAddMember && (
+            <div className="mt-3 flex gap-2">
+              <input
+                ref={inputRef}
+                type="text"
+                value={newMemberName}
+                onChange={e => setNewMemberName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') addMember() }}
+                placeholder="名前を入力"
+                className="flex-1 px-3 py-2 rounded-2xl text-sm border outline-none"
+                style={{ borderColor: '#E8B4BC', color: '#4A3828' }}
+              />
+              <button
+                onClick={addMember}
+                disabled={!newMemberName.trim()}
+                className="px-4 py-2 rounded-2xl text-sm text-white font-medium"
+                style={{
+                  background: newMemberName.trim()
+                    ? 'linear-gradient(135deg, #D4889A, #B89CC8)'
+                    : '#D9CEC8',
+                }}
+              >
+                追加
+              </button>
+            </div>
+          )}
         </div>
 
         {/* 支払い一覧 */}
