@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAppStore } from '../store/useAppStore'
 import { Currency, Payment, Event } from '../types'
-import { generateId } from '../utils/settlement'
+import { generateId, calculateSettlements } from '../utils/settlement'
 
 const CURRENCIES: { code: Currency; label: string; symbol: string }[] = [
   { code: 'JPY', label: '日本円', symbol: '¥' },
@@ -105,18 +105,17 @@ export default function AddPaymentPage({ eventId }: { eventId: string }) {
   const customDiff = amountInJPY - customTotal
   const customOk = Math.abs(customDiff) <= 1
 
-  const handleAdd = () => {
+  const buildPayment = (): Payment | null => {
     setError('')
-    if (!description.trim()) { setError('内容を入力してください'); return }
-    if (numAmount <= 0) { setError('金額を入力してください'); return }
-    if (!payerId) { setError('支払った人を選択してください'); return }
-    if (splitAmong.length === 0) { setError('割り勘する人を選択してください'); return }
+    if (!description.trim()) { setError('内容を入力してください'); return null }
+    if (numAmount <= 0) { setError('金額を入力してください'); return null }
+    if (!payerId) { setError('支払った人を選択してください'); return null }
+    if (splitAmong.length === 0) { setError('割り勘する人を選択してください'); return null }
     if (useCustomSplit && !customOk) {
       setError(`合計が¥${Math.abs(customDiff).toLocaleString()}合いません。調整してください`)
-      return
+      return null
     }
-
-    const newPayment: Payment = {
+    return {
       id: generateId(),
       payerId,
       amount: numAmount,
@@ -130,7 +129,12 @@ export default function AddPaymentPage({ eventId }: { eventId: string }) {
         )
       }),
     }
+  }
 
+  // 保存して一覧へ
+  const handleAdd = () => {
+    const newPayment = buildPayment()
+    if (!newPayment) return
     const updated: Event = {
       ...event,
       payments: [...event.payments, newPayment],
@@ -138,6 +142,22 @@ export default function AddPaymentPage({ eventId }: { eventId: string }) {
     }
     dispatch({ type: 'UPDATE_EVENT', event: updated })
     dispatch({ type: 'SET_PAGE', page: { name: 'event-detail', eventId: event.id } })
+  }
+
+  // 保存してそのまま精算へ
+  const handleAddAndSettle = () => {
+    const newPayment = buildPayment()
+    if (!newPayment) return
+    const newPayments = [...event.payments, newPayment]
+    const settlements = calculateSettlements(event.participants, newPayments)
+    const updated: Event = {
+      ...event,
+      payments: newPayments,
+      settlements,
+      updatedAt: new Date().toISOString(),
+    }
+    dispatch({ type: 'UPDATE_EVENT', event: updated })
+    dispatch({ type: 'SET_PAGE', page: { name: 'settlement', eventId: event.id } })
   }
 
   return (
@@ -360,17 +380,30 @@ export default function AddPaymentPage({ eventId }: { eventId: string }) {
         )}
       </div>
 
-      {/* 追加ボタン */}
-      <div className="fixed bottom-0 left-0 right-0 pb-safe px-5 pt-3">
+      {/* ボタン */}
+      <div className="fixed bottom-0 left-0 right-0 pb-safe px-5 pt-3 space-y-2">
+        {/* 保存して精算へ（メイン） */}
         <button
-          onClick={handleAdd}
+          onClick={handleAddAndSettle}
           className="w-full py-4 rounded-full text-white font-medium text-base transition-all duration-200 active:scale-98"
           style={{
             background: 'linear-gradient(135deg, #D4889A 0%, #B89CC8 100%)',
             boxShadow: '0 8px 24px rgba(180, 100, 130, 0.40)',
           }}
         >
-          支払いを追加する ＋
+          保存して精算する →
+        </button>
+        {/* 保存してもどる */}
+        <button
+          onClick={handleAdd}
+          className="w-full py-3 rounded-full font-medium text-sm transition-all duration-200 active:scale-98"
+          style={{
+            background: '#fff',
+            color: '#9A8070',
+            boxShadow: '0 2px 12px rgba(92,74,58,0.10)',
+          }}
+        >
+          保存してもどる
         </button>
       </div>
     </div>
