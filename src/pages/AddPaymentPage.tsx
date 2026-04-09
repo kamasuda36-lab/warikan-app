@@ -327,8 +327,12 @@ export default function AddPaymentPage({ eventId }: { eventId: string }) {
                     </button>
                   </div>
 
+                  <p className="text-xs mb-2" style={{ color: '#9A8070' }}>
+                    💡 金額を変えると、残りが他の人に自動配分されます
+                  </p>
+
                   <div className="space-y-2">
-                    {splitAmong.map((id, idx) => {
+                    {splitAmong.map((id) => {
                       const p = event.participants.find(p => p.id === id)!
                       const pidx = event.participants.findIndex(p => p.id === id)
                       return (
@@ -345,7 +349,23 @@ export default function AddPaymentPage({ eventId }: { eventId: string }) {
                             <input
                               type="number"
                               value={customSplits[id] ?? ''}
-                              onChange={e => setCustomSplits(prev => ({ ...prev, [id]: e.target.value }))}
+                              onChange={e => {
+                                const newVal = e.target.value
+                                const changedAmt = parseInt(newVal) || 0
+                                const others = splitAmong.filter(oid => oid !== id)
+                                const remaining = amountInJPY - changedAmt
+                                if (others.length > 0) {
+                                  const base = Math.floor(remaining / others.length)
+                                  const rem = remaining - base * others.length
+                                  const newSplits: Record<string, string> = { ...customSplits, [id]: newVal }
+                                  others.forEach((oid, i) => {
+                                    newSplits[oid] = String(i === 0 ? base + rem : base)
+                                  })
+                                  setCustomSplits(newSplits)
+                                } else {
+                                  setCustomSplits(prev => ({ ...prev, [id]: newVal }))
+                                }
+                              }}
                               className="w-24 text-right text-sm font-medium bg-white rounded-xl px-2 py-1 outline-none"
                               style={{ color: '#4A3828', border: '1.5px solid #D4A880' }}
                             />
