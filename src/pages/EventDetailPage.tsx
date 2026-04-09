@@ -14,7 +14,7 @@ function getParticipantName(event: Event, id: string): string {
   return event.participants.find(p => p.id === id)?.name ?? '?'
 }
 
-function PaymentCard({ payment, event, onDelete }: { payment: Payment; event: Event; onDelete: () => void }) {
+function PaymentCard({ payment, event, onDelete, onEdit }: { payment: Payment; event: Event; onDelete: () => void; onEdit: () => void }) {
   const payer = getParticipantName(event, payment.payerId)
   const splitWith = payment.splitAmong.map(id => getParticipantName(event, id)).join('・')
   const hasCustom = !!payment.customSplits
@@ -55,13 +55,22 @@ function PaymentCard({ payment, event, onDelete }: { payment: Payment; event: Ev
         <p className="font-medium text-sm" style={{ color: '#B07840' }}>
           {formatCurrency(payment.amountInJPY)}
         </p>
-        <button
-          onClick={onDelete}
-          className="text-xs mt-1 px-2 py-0.5 rounded-full"
-          style={{ background: '#EDE5DE', color: '#9A8070' }}
-        >
-          削除
-        </button>
+        <div className="flex gap-1 mt-1">
+          <button
+            onClick={onEdit}
+            className="text-xs px-2 py-0.5 rounded-full"
+            style={{ background: '#D4CAEC', color: '#7A5090' }}
+          >
+            編集
+          </button>
+          <button
+            onClick={onDelete}
+            className="text-xs px-2 py-0.5 rounded-full"
+            style={{ background: '#EDE5DE', color: '#9A8070' }}
+          >
+            削除
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -217,6 +226,7 @@ export default function EventDetailPage({ eventId }: { eventId: string }) {
                 payment={payment}
                 event={event}
                 onDelete={() => deletePayment(payment.id)}
+                onEdit={() => dispatch({ type: 'SET_PAGE', page: { name: 'edit-payment', eventId: event.id, paymentId: payment.id } })}
               />
             ))
           )}

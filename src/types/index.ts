@@ -39,4 +39,5 @@ export type Page =
   | { name: 'new-event' }
   | { name: 'event-detail'; eventId: string }
   | { name: 'add-payment'; eventId: string }
+  | { name: 'edit-payment'; eventId: string; paymentId: string }
   | { name: 'settlement'; eventId: string }

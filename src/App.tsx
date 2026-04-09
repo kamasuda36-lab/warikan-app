@@ -18,6 +18,8 @@ export default function App() {
       return <EventDetailPage eventId={currentPage.eventId} />
     case 'add-payment':
       return <AddPaymentPage eventId={currentPage.eventId} />
+    case 'edit-payment':
+      return <AddPaymentPage eventId={currentPage.eventId} paymentId={currentPage.paymentId} />
     case 'settlement':
       return <SettlementPage eventId={currentPage.eventId} />
     default:

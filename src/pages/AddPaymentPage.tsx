@@ -31,23 +31,64 @@ function BackButton({ onClick }: { onClick: () => void }) {
   )
 }
 
-export default function AddPaymentPage({ eventId }: { eventId: string }) {
+// ロック済みの人を除いた残り金額を均等配分して splits を更新
+function redistributeToUnlocked(
+  currentSplits: Record<string, string>,
+  lockedIds: Set<string>,
+  allIds: string[],
+  totalJPY: number
+): Record<string, string> {
+  const lockedTotal = allIds
+    .filter(id => lockedIds.has(id))
+    .reduce((s, id) => s + (parseInt(currentSplits[id]) || 0), 0)
+  const unlockedIds = allIds.filter(id => !lockedIds.has(id))
+  const remaining = totalJPY - lockedTotal
+
+  const newSplits = { ...currentSplits }
+  if (unlockedIds.length === 0) return newSplits
+
+  const base = Math.floor(remaining / unlockedIds.length)
+  const rem = remaining - base * unlockedIds.length
+  unlockedIds.forEach((id, i) => {
+    newSplits[id] = String(i === 0 ? base + rem : base)
+  })
+  return newSplits
+}
+
+interface Props {
+  eventId: string
+  paymentId?: string // 編集時に渡す
+}
+
+export default function AddPaymentPage({ eventId, paymentId }: Props) {
   const { state, dispatch } = useAppStore()
   const event = state.events.find(e => e.id === eventId)
+  const editingPayment = paymentId ? event?.payments.find(p => p.id === paymentId) : undefined
+  const isEditing = !!editingPayment
 
-  const [description, setDescription] = useState('')
-  const [amount, setAmount] = useState('')
-  const [currency, setCurrency] = useState<Currency>('JPY')
-  const [payerId, setPayerId] = useState(event?.participants[0]?.id ?? '')
-  const [splitAmong, setSplitAmong] = useState<string[]>(event?.participants.map(p => p.id) ?? [])
+  const [description, setDescription] = useState(editingPayment?.description ?? '')
+  const [amount, setAmount] = useState(editingPayment ? String(editingPayment.amount) : '')
+  const [currency, setCurrency] = useState<Currency>(editingPayment?.currency ?? 'JPY')
+  const [payerId, setPayerId] = useState(editingPayment?.payerId ?? event?.participants[0]?.id ?? '')
+  const [splitAmong, setSplitAmong] = useState<string[]>(
+    editingPayment?.splitAmong ?? event?.participants.map(p => p.id) ?? []
+  )
   const [rate, setRate] = useState(1)
   const [rateLoading, setRateLoading] = useState(false)
   const [rateError, setRateError] = useState('')
   const [error, setError] = useState('')
 
   // 個別調整
-  const [useCustomSplit, setUseCustomSplit] = useState(false)
-  const [customSplits, setCustomSplits] = useState<Record<string, string>>({})
+  const [useCustomSplit, setUseCustomSplit] = useState(!!editingPayment?.customSplits)
+  const [customSplits, setCustomSplits] = useState<Record<string, string>>(
+    editingPayment?.customSplits
+      ? Object.fromEntries(Object.entries(editingPayment.customSplits).map(([k, v]) => [k, String(v)]))
+      : {}
+  )
+  // どの人が「手動確定済み」か
+  const [lockedIds, setLockedIds] = useState<Set<string>>(
+    editingPayment?.customSplits ? new Set(Object.keys(editingPayment.customSplits)) : new Set()
+  )
 
   useEffect(() => {
     if (currency === 'JPY') { setRate(1); return }
@@ -58,21 +99,33 @@ export default function AddPaymentPage({ eventId }: { eventId: string }) {
       .catch(() => { setRateError('レート取得に失敗しました'); setRateLoading(false) })
   }, [currency])
 
-  // カスタム分割を均等で初期化（端数は最初の人に加算して合計をぴったりにする）
-  const initCustomSplits = (ids: string[], totalJPY: number) => {
+  if (!event) return null
+
+  const numAmount = parseFloat(amount) || 0
+  const amountInJPY = editingPayment?.amountInJPY
+    ? (currency === editingPayment.currency ? editingPayment.amountInJPY : Math.round(numAmount * rate))
+    : Math.round(numAmount * rate)
+  const amountInJPYCalc = Math.round(numAmount * rate)
+  const currencyInfo = CURRENCIES.find(c => c.code === currency)!
+
+  const customTotal = splitAmong.reduce((s, id) => s + (parseInt(customSplits[id]) || 0), 0)
+  const customDiff = amountInJPYCalc - customTotal
+  const customOk = Math.abs(customDiff) <= 1
+
+  // 均等で初期化（ロックなし）
+  const initCustomSplitsEqual = (ids: string[], totalJPY: number) => {
     if (ids.length === 0) return
     const base = Math.floor(totalJPY / ids.length)
-    const remainder = totalJPY - base * ids.length
+    const rem = totalJPY - base * ids.length
     const splits: Record<string, string> = {}
-    ids.forEach((id, idx) => {
-      splits[id] = String(idx === 0 ? base + remainder : base)
-    })
+    ids.forEach((id, i) => { splits[id] = String(i === 0 ? base + rem : base) })
     setCustomSplits(splits)
+    setLockedIds(new Set())
   }
 
   const handleToggleCustomSplit = () => {
     if (!useCustomSplit) {
-      initCustomSplits(splitAmong, amountInJPY)
+      initCustomSplitsEqual(splitAmong, amountInJPYCalc)
     }
     setUseCustomSplit(v => !v)
   }
@@ -81,7 +134,9 @@ export default function AddPaymentPage({ eventId }: { eventId: string }) {
     setAmount(e.target.value)
     if (useCustomSplit) {
       const newJPY = Math.round((parseFloat(e.target.value) || 0) * rate)
-      initCustomSplits(splitAmong, newJPY)
+      // ロックされていない人に再配分
+      const newSplits = redistributeToUnlocked(customSplits, lockedIds, splitAmong, newJPY)
+      setCustomSplits(newSplits)
     }
   }
 
@@ -91,21 +146,34 @@ export default function AddPaymentPage({ eventId }: { eventId: string }) {
       : [...splitAmong, id]
     setSplitAmong(next)
     if (useCustomSplit) {
-      initCustomSplits(next, amountInJPY)
+      const newLocked = new Set(lockedIds)
+      if (!next.includes(id)) newLocked.delete(id)
+      setLockedIds(newLocked)
+      const newSplits = redistributeToUnlocked(customSplits, newLocked, next, amountInJPYCalc)
+      setCustomSplits(newSplits)
     }
   }
 
-  if (!event) return null
+  // 1人の金額を変更 → その人をロック → 残りをアンロック勢で均等配分
+  const handleCustomAmountChange = (id: string, newVal: string) => {
+    const newLocked = new Set(lockedIds)
+    newLocked.add(id)
+    setLockedIds(newLocked)
+    const tentative = { ...customSplits, [id]: newVal }
+    const newSplits = redistributeToUnlocked(tentative, newLocked, splitAmong, amountInJPYCalc)
+    setCustomSplits(newSplits)
+  }
 
-  const numAmount = parseFloat(amount) || 0
-  const amountInJPY = Math.round(numAmount * rate)
-  const currencyInfo = CURRENCIES.find(c => c.code === currency)!
+  // ロック解除 → アンロック勢に再配分
+  const handleUnlock = (id: string) => {
+    const newLocked = new Set(lockedIds)
+    newLocked.delete(id)
+    setLockedIds(newLocked)
+    const newSplits = redistributeToUnlocked(customSplits, newLocked, splitAmong, amountInJPYCalc)
+    setCustomSplits(newSplits)
+  }
 
-  const customTotal = Object.values(customSplits).reduce((s, v) => s + (parseInt(v) || 0), 0)
-  const customDiff = amountInJPY - customTotal
-  const customOk = Math.abs(customDiff) <= 1
-
-  const buildPayment = (): Payment | null => {
+  const buildPayment = (existingId?: string): Payment | null => {
     setError('')
     if (!description.trim()) { setError('内容を入力してください'); return null }
     if (numAmount <= 0) { setError('金額を入力してください'); return null }
@@ -116,65 +184,67 @@ export default function AddPaymentPage({ eventId }: { eventId: string }) {
       return null
     }
     return {
-      id: generateId(),
+      id: existingId ?? generateId(),
       payerId,
       amount: numAmount,
       currency,
-      amountInJPY,
+      amountInJPY: amountInJPYCalc,
       description: description.trim(),
       splitAmong,
       ...(useCustomSplit && {
         customSplits: Object.fromEntries(
-          Object.entries(customSplits).map(([id, v]) => [id, parseInt(v) || 0])
+          splitAmong.map(id => [id, parseInt(customSplits[id]) || 0])
         )
       }),
     }
   }
 
-  // 保存して一覧へ
-  const handleAdd = () => {
-    const newPayment = buildPayment()
-    if (!newPayment) return
-    const updated: Event = {
-      ...event,
-      payments: [...event.payments, newPayment],
-      updatedAt: new Date().toISOString(),
+  // 保存してイベント詳細へ
+  const handleSave = () => {
+    const payment = buildPayment(editingPayment?.id)
+    if (!payment) return
+    let newPayments: Payment[]
+    if (isEditing) {
+      newPayments = event.payments.map(p => p.id === payment.id ? payment : p)
+    } else {
+      newPayments = [...event.payments, payment]
     }
+    const updated: Event = { ...event, payments: newPayments, updatedAt: new Date().toISOString() }
     dispatch({ type: 'UPDATE_EVENT', event: updated })
     dispatch({ type: 'SET_PAGE', page: { name: 'event-detail', eventId: event.id } })
   }
 
   // 保存してそのまま精算へ
-  const handleAddAndSettle = () => {
-    const newPayment = buildPayment()
-    if (!newPayment) return
-    const newPayments = [...event.payments, newPayment]
-    const settlements = calculateSettlements(event.participants, newPayments)
-    const updated: Event = {
-      ...event,
-      payments: newPayments,
-      settlements,
-      updatedAt: new Date().toISOString(),
+  const handleSaveAndSettle = () => {
+    const payment = buildPayment(editingPayment?.id)
+    if (!payment) return
+    let newPayments: Payment[]
+    if (isEditing) {
+      newPayments = event.payments.map(p => p.id === payment.id ? payment : p)
+    } else {
+      newPayments = [...event.payments, payment]
     }
+    const settlements = calculateSettlements(event.participants, newPayments)
+    const updated: Event = { ...event, payments: newPayments, settlements, updatedAt: new Date().toISOString() }
     dispatch({ type: 'UPDATE_EVENT', event: updated })
     dispatch({ type: 'SET_PAGE', page: { name: 'settlement', eventId: event.id } })
   }
 
   return (
     <div className="min-h-screen" style={{ background: '#F5F0EC' }}>
-      {/* ヘッダー（sticky で常に表示） */}
+      {/* ヘッダー */}
       <div
         className="sticky top-0 z-10 px-5 pt-safe pb-4"
         style={{ background: 'linear-gradient(180deg, #F5F0EC 88%, transparent 100%)' }}
       >
         <BackButton onClick={() => dispatch({ type: 'SET_PAGE', page: { name: 'event-detail', eventId: event.id } })} />
         <h1 className="text-2xl font-medium mt-3" style={{ color: '#4A3828' }}>
-          支払いを追加
+          {isEditing ? '支払いを編集' : '支払いを追加'}
         </h1>
         <p className="text-sm mt-0.5" style={{ color: '#9A8070' }}>{event.name}</p>
       </div>
 
-      <div className="px-5 pb-36 space-y-4">
+      <div className="px-5 pb-40 space-y-4">
         {/* 内容 */}
         <div className="bg-white rounded-3xl p-5" style={{ boxShadow: '0 2px 16px rgba(92,74,58,0.10)' }}>
           <label className="text-sm font-medium block mb-2" style={{ color: '#7A5E50' }}>内容</label>
@@ -197,11 +267,7 @@ export default function AddPaymentPage({ eventId }: { eventId: string }) {
                 key={c.code}
                 onClick={() => setCurrency(c.code)}
                 className="px-3 py-1.5 rounded-full text-xs font-medium transition-all"
-                style={
-                  currency === c.code
-                    ? { background: '#D4889A', color: '#fff' }
-                    : { background: '#EDE5DE', color: '#7A5E50' }
-                }
+                style={currency === c.code ? { background: '#D4889A', color: '#fff' } : { background: '#EDE5DE', color: '#7A5E50' }}
               >
                 {c.code}
               </button>
@@ -226,12 +292,8 @@ export default function AddPaymentPage({ eventId }: { eventId: string }) {
                 <p className="text-xs text-center" style={{ color: '#C07080' }}>{rateError}</p>
               ) : (
                 <div className="text-center">
-                  <p className="text-sm font-medium" style={{ color: '#B07840' }}>
-                    ≈ ¥{amountInJPY.toLocaleString()} 円
-                  </p>
-                  <p className="text-xs mt-0.5" style={{ color: '#9A8070' }}>
-                    1 {currency} = ¥{rate.toFixed(2)}（Frankfurter API）
-                  </p>
+                  <p className="text-sm font-medium" style={{ color: '#B07840' }}>≈ ¥{amountInJPYCalc.toLocaleString()} 円</p>
+                  <p className="text-xs mt-0.5" style={{ color: '#9A8070' }}>1 {currency} = ¥{rate.toFixed(2)}（Frankfurter API）</p>
                 </div>
               )}
             </div>
@@ -240,20 +302,14 @@ export default function AddPaymentPage({ eventId }: { eventId: string }) {
 
         {/* 支払った人 */}
         <div className="bg-white rounded-3xl p-5" style={{ boxShadow: '0 2px 16px rgba(92,74,58,0.10)' }}>
-          <label className="text-sm font-medium block mb-3" style={{ color: '#7A5E50' }}>
-            支払った人
-          </label>
+          <label className="text-sm font-medium block mb-3" style={{ color: '#7A5E50' }}>支払った人</label>
           <div className="flex flex-wrap gap-2">
             {event.participants.map((p, idx) => (
               <button
                 key={p.id}
                 onClick={() => setPayerId(p.id)}
                 className="px-4 py-2 rounded-full text-sm font-medium transition-all"
-                style={
-                  payerId === p.id
-                    ? { background: `hsl(${idx * 47 + 340}, 65%, 68%)`, color: '#fff' }
-                    : { background: '#EDE5DE', color: '#7A5E50' }
-                }
+                style={payerId === p.id ? { background: `hsl(${idx * 47 + 340}, 65%, 68%)`, color: '#fff' } : { background: '#EDE5DE', color: '#7A5E50' }}
               >
                 {p.name}
               </button>
@@ -264,16 +320,15 @@ export default function AddPaymentPage({ eventId }: { eventId: string }) {
         {/* 割り勘する人 */}
         <div className="bg-white rounded-3xl p-5" style={{ boxShadow: '0 2px 16px rgba(92,74,58,0.10)' }}>
           <div className="flex items-center justify-between mb-3">
-            <label className="text-sm font-medium" style={{ color: '#7A5E50' }}>
-              割り勘する人
-            </label>
+            <label className="text-sm font-medium" style={{ color: '#7A5E50' }}>割り勘する人</label>
             <button
               onClick={() => {
-                const next = splitAmong.length === event.participants.length
-                  ? []
-                  : event.participants.map(p => p.id)
+                const next = splitAmong.length === event.participants.length ? [] : event.participants.map(p => p.id)
                 setSplitAmong(next)
-                if (useCustomSplit) initCustomSplits(next, amountInJPY)
+                if (useCustomSplit) {
+                  setLockedIds(new Set())
+                  initCustomSplitsEqual(next, amountInJPYCalc)
+                }
               }}
               className="text-xs px-3 py-1 rounded-full"
               style={{ background: '#ECC4CC', color: '#C07080' }}
@@ -298,13 +353,12 @@ export default function AddPaymentPage({ eventId }: { eventId: string }) {
             ))}
           </div>
 
-          {/* 均等割り表示 or 調整モード切り替え */}
           {splitAmong.length > 0 && numAmount > 0 && (
             <div className="mt-4">
               {!useCustomSplit ? (
                 <div className="flex items-center justify-between">
                   <p className="text-xs" style={{ color: '#9A8070' }}>
-                    1人あたり ¥{Math.round(amountInJPY / splitAmong.length).toLocaleString()}
+                    1人あたり ¥{Math.round(amountInJPYCalc / splitAmong.length).toLocaleString()}
                   </p>
                   <button
                     onClick={handleToggleCustomSplit}
@@ -316,10 +370,13 @@ export default function AddPaymentPage({ eventId }: { eventId: string }) {
                 </div>
               ) : (
                 <div>
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center justify-between mb-2">
                     <p className="text-xs font-medium" style={{ color: '#7A5E50' }}>個別に金額を設定</p>
                     <button
-                      onClick={handleToggleCustomSplit}
+                      onClick={() => {
+                        initCustomSplitsEqual(splitAmong, amountInJPYCalc)
+                        setUseCustomSplit(false)
+                      }}
                       className="text-xs px-3 py-1.5 rounded-full"
                       style={{ background: '#EDE5DE', color: '#9A8070' }}
                     >
@@ -327,47 +384,55 @@ export default function AddPaymentPage({ eventId }: { eventId: string }) {
                     </button>
                   </div>
 
-                  <p className="text-xs mb-2" style={{ color: '#9A8070' }}>
-                    💡 金額を変えると、残りが他の人に自動配分されます
+                  <p className="text-xs mb-3" style={{ color: '#9A8070' }}>
+                    💡 金額を入力すると固定され、残りが他の人に自動配分されます。🔓 で解除できます
                   </p>
 
                   <div className="space-y-2">
                     {splitAmong.map((id) => {
                       const p = event.participants.find(p => p.id === id)!
                       const pidx = event.participants.findIndex(p => p.id === id)
+                      const isLocked = lockedIds.has(id)
                       return (
-                        <div key={id} className="flex items-center gap-3 p-3 rounded-2xl" style={{ background: '#F5F0EC' }}>
+                        <div
+                          key={id}
+                          className="flex items-center gap-3 p-3 rounded-2xl"
+                          style={{ background: isLocked ? '#EDE0F5' : '#F5F0EC' }}
+                        >
                           <span
                             className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-xs text-white font-medium"
                             style={{ background: `hsl(${pidx * 47 + 340}, 65%, 68%)` }}
                           >
                             {p.name[0]}
                           </span>
-                          <span className="flex-1 text-sm font-medium" style={{ color: '#4A3828' }}>{p.name}</span>
+                          <span className="flex-1 text-sm font-medium" style={{ color: '#4A3828' }}>
+                            {p.name}
+                            {isLocked && (
+                              <span className="ml-1 text-xs" style={{ color: '#9A70C0' }}>確定</span>
+                            )}
+                          </span>
+                          {/* ロック解除ボタン */}
+                          {isLocked && (
+                            <button
+                              onClick={() => handleUnlock(id)}
+                              className="text-xs px-2 py-1 rounded-full flex-shrink-0"
+                              style={{ background: '#D4CAEC', color: '#7A5090' }}
+                            >
+                              🔓
+                            </button>
+                          )}
                           <div className="flex items-center gap-1">
                             <span className="text-sm" style={{ color: '#B07840' }}>¥</span>
                             <input
                               type="number"
                               value={customSplits[id] ?? ''}
-                              onChange={e => {
-                                const newVal = e.target.value
-                                const changedAmt = parseInt(newVal) || 0
-                                const others = splitAmong.filter(oid => oid !== id)
-                                const remaining = amountInJPY - changedAmt
-                                if (others.length > 0) {
-                                  const base = Math.floor(remaining / others.length)
-                                  const rem = remaining - base * others.length
-                                  const newSplits: Record<string, string> = { ...customSplits, [id]: newVal }
-                                  others.forEach((oid, i) => {
-                                    newSplits[oid] = String(i === 0 ? base + rem : base)
-                                  })
-                                  setCustomSplits(newSplits)
-                                } else {
-                                  setCustomSplits(prev => ({ ...prev, [id]: newVal }))
-                                }
+                              onChange={e => handleCustomAmountChange(id, e.target.value)}
+                              className="w-24 text-right text-sm font-medium rounded-xl px-2 py-1 outline-none"
+                              style={{
+                                color: '#4A3828',
+                                background: isLocked ? '#EDE0F5' : '#fff',
+                                border: isLocked ? '1.5px solid #B89CC8' : '1.5px solid #D4A880',
                               }}
-                              className="w-24 text-right text-sm font-medium bg-white rounded-xl px-2 py-1 outline-none"
-                              style={{ color: '#4A3828', border: '1.5px solid #D4A880' }}
                             />
                           </div>
                         </div>
@@ -376,7 +441,7 @@ export default function AddPaymentPage({ eventId }: { eventId: string }) {
                   </div>
 
                   {/* 合計チェック */}
-                  <div className={`mt-3 p-3 rounded-2xl text-center ${customOk ? '' : ''}`}
+                  <div className="mt-3 p-3 rounded-2xl text-center"
                     style={{ background: customOk ? '#D8EEE6' : '#FEE8EC' }}>
                     <p className="text-xs font-medium" style={{ color: customOk ? '#3A8060' : '#C07080' }}>
                       {customOk
@@ -402,28 +467,22 @@ export default function AddPaymentPage({ eventId }: { eventId: string }) {
 
       {/* ボタン */}
       <div className="fixed bottom-0 left-0 right-0 pb-safe px-5 pt-3 space-y-2">
-        {/* 保存して精算へ（メイン） */}
         <button
-          onClick={handleAddAndSettle}
+          onClick={handleSaveAndSettle}
           className="w-full py-4 rounded-full text-white font-medium text-base transition-all duration-200 active:scale-98"
           style={{
             background: 'linear-gradient(135deg, #D4889A 0%, #B89CC8 100%)',
             boxShadow: '0 8px 24px rgba(180, 100, 130, 0.40)',
           }}
         >
-          保存して精算する →
+          {isEditing ? '保存して精算する →' : '保存して精算する →'}
         </button>
-        {/* 保存してもどる */}
         <button
-          onClick={handleAdd}
+          onClick={handleSave}
           className="w-full py-3 rounded-full font-medium text-sm transition-all duration-200 active:scale-98"
-          style={{
-            background: '#fff',
-            color: '#9A8070',
-            boxShadow: '0 2px 12px rgba(92,74,58,0.10)',
-          }}
+          style={{ background: '#fff', color: '#9A8070', boxShadow: '0 2px 12px rgba(92,74,58,0.10)' }}
         >
-          保存してもどる
+          {isEditing ? '保存してもどる' : '保存してもどる'}
         </button>
       </div>
     </div>
