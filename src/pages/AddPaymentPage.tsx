@@ -58,12 +58,15 @@ export default function AddPaymentPage({ eventId }: { eventId: string }) {
       .catch(() => { setRateError('レート取得に失敗しました'); setRateLoading(false) })
   }, [currency])
 
-  // カスタム分割を均等で初期化
+  // カスタム分割を均等で初期化（端数は最初の人に加算して合計をぴったりにする）
   const initCustomSplits = (ids: string[], totalJPY: number) => {
     if (ids.length === 0) return
-    const equal = Math.round(totalJPY / ids.length)
+    const base = Math.floor(totalJPY / ids.length)
+    const remainder = totalJPY - base * ids.length
     const splits: Record<string, string> = {}
-    ids.forEach(id => { splits[id] = String(equal) })
+    ids.forEach((id, idx) => {
+      splits[id] = String(idx === 0 ? base + remainder : base)
+    })
     setCustomSplits(splits)
   }
 
@@ -139,8 +142,11 @@ export default function AddPaymentPage({ eventId }: { eventId: string }) {
 
   return (
     <div className="min-h-screen" style={{ background: '#F5F0EC' }}>
-      {/* ヘッダー */}
-      <div className="px-5 pt-safe pb-4">
+      {/* ヘッダー（sticky で常に表示） */}
+      <div
+        className="sticky top-0 z-10 px-5 pt-safe pb-4"
+        style={{ background: 'linear-gradient(180deg, #F5F0EC 88%, transparent 100%)' }}
+      >
         <BackButton onClick={() => dispatch({ type: 'SET_PAGE', page: { name: 'event-detail', eventId: event.id } })} />
         <h1 className="text-2xl font-medium mt-3" style={{ color: '#4A3828' }}>
           支払いを追加
